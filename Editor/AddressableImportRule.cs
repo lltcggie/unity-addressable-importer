@@ -159,6 +159,8 @@ public class AddressableImportRule
             return false;
         if (ignoreDirectory && assetPath.EndsWith("/"))
             return false;
+        if (IsResourcesDirefctory(assetPath)) // Always ignore Resources and Resources sub directory.
+            return false;
         if (IsIgnorePath(assetPath))
             return false;
         if (IsIgnoreDirectoryRegexs(assetPath))
@@ -268,6 +270,14 @@ public class AddressableImportRule
                 }
             }
         }
+    }
+
+    /// <summary>
+    /// Ckeck Resources directory.
+    /// </summary>
+    private bool IsResourcesDirefctory(string assetPath)
+    {
+        return Regex.IsMatch(assetPath, "/Resources($|/)");
     }
 
     /// <summary>
