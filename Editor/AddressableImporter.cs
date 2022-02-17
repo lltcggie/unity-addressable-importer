@@ -73,10 +73,18 @@ public class AddressableImporter : AssetPostprocessor
             var movedAsset = movedAssets[i];
             var movedFromAssetPath = movedFromAssetPaths[i];
             if (prefabStage == null || prefabAssetPath != movedAsset) // Ignore current editing prefab asset.
+            {
+                if ((File.GetAttributes(movedAsset) & FileAttributes.Directory) == FileAttributes.Directory)
+                {
+                    movedAsset += "/";
+                    movedFromAssetPath += "/";
+                }
                 dirty |= ApplyImportRule(movedAsset, movedFromAssetPath, settings, importSettings);
+
+            }
         }
 
-        foreach (var deletedAsset in deletedAssets)
+            foreach (var deletedAsset in deletedAssets)
         {
             if (TryGetMatchedRule(deletedAsset, importSettings, out var matchedRule))
             {
