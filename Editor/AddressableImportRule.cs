@@ -210,7 +210,7 @@ public class AddressableImportRule
         // If the match type is Wildcard, the pattern will match and capture the entire path string.
         string pathRegex =
             simplified
-                ? @"(?<path>.*[/\\])+(?<filename>.+?)(?<extension>\.[^.]*$|$)"
+                ? @"(?<path>.*[/\\])+(?<filename>.+?)(?<extension>\.[^.]*|)($|/$)"
                 : (matchType == AddressableImportRuleMatchType.Wildcard
                     ? @"(.*)"
                     : path);

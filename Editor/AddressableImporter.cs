@@ -58,7 +58,14 @@ public class AddressableImporter : AssetPostprocessor
         foreach (var importedAsset in importedAssets)
         {
             if (prefabStage == null || prefabAssetPath != importedAsset) // Ignore current editing prefab asset.
-                dirty |= ApplyImportRule(importedAsset, null, settings, importSettings);
+            {
+                var importedAssetPath = importedAsset;
+                if ((File.GetAttributes(importedAssetPath) & FileAttributes.Directory) == FileAttributes.Directory)
+                {
+                    importedAssetPath += "/";
+                }
+                dirty |= ApplyImportRule(importedAssetPath, null, settings, importSettings);
+            }
         }
 
         for (var i = 0; i < movedAssets.Length; i++)
@@ -163,7 +170,8 @@ public class AddressableImporter : AssetPostprocessor
             rule.groupTemplate.ApplyToAddressableAssetGroup(group);
         }
 
-        var guid = AssetDatabase.AssetPathToGUID(assetPath);
+        var forAssetDatabaseAssetPath = assetPath.EndsWith("/") ? assetPath.Substring(0, assetPath.Length - 1) : assetPath;
+        var guid = AssetDatabase.AssetPathToGUID(forAssetDatabaseAssetPath);
         var entry = settings.CreateOrMoveEntry(guid, group);
 
         if (entry != null)
