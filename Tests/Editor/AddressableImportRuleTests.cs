@@ -181,5 +181,54 @@ namespace UnityAddressableImporter.Tests
             rule.addressReplacement = "${PATH[0]}:${category}-${asset}";
             Assert.AreEqual("Assets:cat-foo", rule.ParseAddressReplacement("Assets/Sprites/cat/foo.png"));
         }
+
+        [Test]
+        public void IgnoreTest()
+        {
+            AddressableImportRule rule = new AddressableImportRule();
+            rule.matchType = AddressableImportRuleMatchType.Regex;
+            rule.path = @"Assets/.*";
+            Assert.IsTrue(rule.Match("Assets/Sprites/cat/cat.png"));
+            Assert.IsTrue(rule.Match("Assets/Sprites/dog/dog.png"));
+            Assert.IsTrue(rule.Match("Assets/Scripts/cat/cat.cs"));
+            Assert.IsTrue(rule.Match("Assets/Scripts/dog/dog.cs"));
+            Assert.IsTrue(rule.Match("Assets/Sprites/cat.ext/cat.png"));
+            Assert.IsTrue(rule.Match("Assets/Scripts/dog.ext/dog.cs"));
+            Assert.IsTrue(rule.Match("Assets/Sprites/cat/aiu.png"));
+            // Test Resources ignore
+            Assert.IsFalse(rule.Match("Assets/Resources/Sprites/cat/cat.png"));
+            Assert.IsFalse(rule.Match("Assets/Sprites/Resources/cat/cat.png"));
+            // Test ignoreDirectory
+            Assert.IsTrue(rule.Match("Assets/Sprites/cat/"));
+            Assert.IsTrue(rule.Match("Assets/Scripts/dog/"));
+            rule.ignoreDirectory = true;
+            Assert.IsFalse(rule.Match("Assets/Sprites/cat/"));
+            Assert.IsFalse(rule.Match("Assets/Scripts/dog/"));
+            // Test ignorePathRegexs
+            rule.ignorePathRegexs = new List<string> { @"Assets/Sprites/dog/dog\.png", };
+            Assert.IsFalse(rule.Match("Assets/Sprites/dog/dog.png"));
+            Assert.IsTrue(rule.Match("Assets/Sprites/cat/cat.png"));
+            rule.ignorePathRegexs = new List<string>();
+            // Test ignoreDirectoryRegexs
+            rule.ignoreDirectoryRegexs = new List<string> { "/Sprites/", "/Scripts/d.g/", };
+            Assert.IsFalse(rule.Match("Assets/Sprites/cat/cat.png"));
+            Assert.IsFalse(rule.Match("Assets/Sprites/cat/"));
+            Assert.IsFalse(rule.Match("Assets/Sprites/cat.ext/cat.png"));
+            Assert.IsFalse(rule.Match("Assets/Sprites/cat.ext/"));
+            Assert.IsFalse(rule.Match("Assets/Scripts/dog/dog.cs"));
+            Assert.IsFalse(rule.Match("Assets/Scripts/dog/"));
+            Assert.IsTrue(rule.Match("Assets/Scripts/dog.ext/dog.cs"));
+            rule.ignoreDirectoryRegexs = new List<string>();
+            // Test ignoreFileRegexs
+            rule.ignoreFileRegexs = new List<string> { "c.t", };
+            Assert.IsFalse(rule.Match("Assets/Sprites/cat/cat.png"));
+            Assert.IsTrue(rule.Match("Assets/Sprites/dog/dog.png"));
+            Assert.IsFalse(rule.Match("Assets/Scripts/cat/cat.cs"));
+            Assert.IsTrue(rule.Match("Assets/Scripts/dog/dog.cs"));
+            Assert.IsFalse(rule.Match("Assets/Sprites/cat.ext/cat.png"));
+            Assert.IsTrue(rule.Match("Assets/Scripts/dog.ext/dog.cs"));
+            Assert.IsTrue(rule.Match("Assets/Sprites/cat/aiu.png"));
+            rule.ignoreFileRegexs = new List<string>();
+        }
     }
 }
