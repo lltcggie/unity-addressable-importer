@@ -59,6 +59,13 @@ public class AddressableImportRule
     public AddressableImportRuleMatchType matchType;
 
     /// <summary>
+    /// Ignore directory.
+    /// </summary>
+    [Tooltip("Ignore directory.")]
+    [Label("Ignore directory")]
+    public bool ignoreDirectory;
+
+    /// <summary>
     /// The group the asset will be added.
     /// </summary>
     [Tooltip("The group name in which the Addressable will be added. Leave blank for the default group.")]
@@ -106,8 +113,8 @@ public class AddressableImportRule
     public string addressReplacement = string.Empty;
 
     #endregion
-    
-    
+
+
     private AddressableImportFilter _filter = new AddressableImportFilter();
     public AddressableImportFilter Filter => _filter ?? new AddressableImportFilter();
 
@@ -137,6 +144,8 @@ public class AddressableImportRule
     {
         path = path.Trim();
         if (string.IsNullOrEmpty(path))
+            return false;
+        if (ignoreDirectory && assetPath.EndsWith("/"))
             return false;
         if (matchType == AddressableImportRuleMatchType.Wildcard)
         {
