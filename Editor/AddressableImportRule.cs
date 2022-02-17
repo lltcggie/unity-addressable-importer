@@ -68,7 +68,7 @@ public class AddressableImportRule
     [Tooltip("Ignore path by Regex. ex) Assets/unity-addressable-importer/.*/test\\.txt")]
     public List<string> ignorePathRegexs;
 
-    [Tooltip("Ignore directory by Regex. ex) Assets/unity-addressable-importer")]
+    [Tooltip("Ignore directory by Regex. Directory is must end '/'. ex) Assets/unity-addressable-importer")]
     public List<string> ignoreDirectoryRegexs;
 
     [Tooltip("Ignore file by Regex. ex) test\\.cs")]
@@ -285,6 +285,11 @@ public class AddressableImportRule
     /// </summary>
     private bool IsIgnorePath(string assetPath)
     {
+        if (ignorePathRegexs == null)
+        {
+            return false;
+        }
+
         foreach (var ignorePathRegex in ignorePathRegexs)
         {
             if (Regex.IsMatch(assetPath, ignorePathRegex))
@@ -300,12 +305,21 @@ public class AddressableImportRule
     /// </summary>
     private bool IsIgnoreDirectoryRegexs(string assetPath)
     {
-        var dir = System.IO.Path.GetDirectoryName(assetPath);
-        if (dir == null)
+        if (ignoreDirectoryRegexs == null)
         {
             return false;
         }
+
+        var dir = System.IO.Path.GetDirectoryName(assetPath);
+        if (dir == null)
+        {
+            dir = "/";
+        }
         dir = dir.Replace("\\", "/");
+        if (!dir.EndsWith("/"))
+        {
+            dir += "/";
+        }
 
         foreach (var ignoreDirectoryRegex in ignoreDirectoryRegexs)
         {
@@ -322,6 +336,11 @@ public class AddressableImportRule
     /// </summary>
     private bool IsIgnoreFileRegexs(string assetPath)
     {
+        if (ignoreFileRegexs == null)
+        {
+            return false;
+        }
+
         var file = System.IO.Path.GetFileName(assetPath);
         if (file == null)
         {
@@ -343,6 +362,11 @@ public class AddressableImportRule
     /// </summary>
     private bool IsIgnoreExts(string assetPath)
     {
+        if (ignoreExts == null)
+        {
+            return false;
+        }
+
         var ext = System.IO.Path.GetExtension(assetPath);
         if (ext == null)
         {
