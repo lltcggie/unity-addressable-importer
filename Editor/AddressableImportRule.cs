@@ -65,6 +65,18 @@ public class AddressableImportRule
     [Label("Ignore directory")]
     public bool ignoreDirectory;
 
+    [Tooltip("Ignore path by Regex. ex) Assets/unity-addressable-importer/.*/test\\.txt")]
+    public List<string> ignorePathRegexs;
+
+    [Tooltip("Ignore directory by Regex. ex) Assets/unity-addressable-importer")]
+    public List<string> ignoreDirectoryRegexs;
+
+    [Tooltip("Ignore file by Regex. ex) test\\.cs")]
+    public List<string> ignoreFileRegexs;
+
+    [Tooltip("Ignore extension. Extension is lower case. ex) .txt")]
+    public List<string> ignoreExts;
+
     /// <summary>
     /// The group the asset will be added.
     /// </summary>
@@ -147,6 +159,15 @@ public class AddressableImportRule
             return false;
         if (ignoreDirectory && assetPath.EndsWith("/"))
             return false;
+        if (IsIgnorePath(assetPath))
+            return false;
+        if (IsIgnoreDirectoryRegexs(assetPath))
+            return false;
+        if (IsIgnoreFileRegexs(assetPath))
+            return false;
+        if (IsIgnoreExts(assetPath))
+            return false;
+
         if (matchType == AddressableImportRuleMatchType.Wildcard)
         {
             if (path.Contains("*") || path.Contains("?"))
@@ -247,6 +268,86 @@ public class AddressableImportRule
                 }
             }
         }
+    }
+
+    /// <summary>
+    /// Ckeck match ignorePathRegexs.
+    /// </summary>
+    private bool IsIgnorePath(string assetPath)
+    {
+        foreach (var ignorePathRegex in ignorePathRegexs)
+        {
+            if (Regex.IsMatch(assetPath, ignorePathRegex))
+            {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /// <summary>
+    /// Ckeck match ignoreDirectoryRegexs.
+    /// </summary>
+    private bool IsIgnoreDirectoryRegexs(string assetPath)
+    {
+        var dir = System.IO.Path.GetDirectoryName(assetPath);
+        if (dir == null)
+        {
+            return false;
+        }
+        dir = dir.Replace("\\", "/");
+
+        foreach (var ignoreDirectoryRegex in ignoreDirectoryRegexs)
+        {
+            if (Regex.IsMatch(dir, ignoreDirectoryRegex))
+            {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /// <summary>
+    /// Ckeck match ignoreDirectoryRegexs.
+    /// </summary>
+    private bool IsIgnoreFileRegexs(string assetPath)
+    {
+        var file = System.IO.Path.GetFileName(assetPath);
+        if (file == null)
+        {
+            return false;
+        }
+
+        foreach (var ignoreFileRegexs in ignoreFileRegexs)
+        {
+            if (Regex.IsMatch(file, ignoreFileRegexs))
+            {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /// <summary>
+    /// Ckeck match ignoreDirectoryRegexs.
+    /// </summary>
+    private bool IsIgnoreExts(string assetPath)
+    {
+        var ext = System.IO.Path.GetExtension(assetPath);
+        if (ext == null)
+        {
+            return false;
+        }
+        ext = ext.ToLower();
+
+        foreach (var ignoreExts in ignoreExts)
+        {
+            if (ext == ignoreExts)
+            {
+                return true;
+            }
+        }
+        return false;
     }
 
     /// <summary>
