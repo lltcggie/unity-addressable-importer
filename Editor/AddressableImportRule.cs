@@ -273,7 +273,7 @@ public class AddressableImportRule
     }
 
     /// <summary>
-    /// Ckeck Resources directory.
+    /// Check Resources directory.
     /// </summary>
     private bool IsResourcesDirefctory(string assetPath)
     {
@@ -281,7 +281,7 @@ public class AddressableImportRule
     }
 
     /// <summary>
-    /// Ckeck match ignorePathRegexs.
+    /// Check match ignorePathRegexs.
     /// </summary>
     private bool IsIgnorePath(string assetPath)
     {
@@ -296,7 +296,7 @@ public class AddressableImportRule
     }
 
     /// <summary>
-    /// Ckeck match ignoreDirectoryRegexs.
+    /// Check match ignoreDirectoryRegexs.
     /// </summary>
     private bool IsIgnoreDirectoryRegexs(string assetPath)
     {
@@ -318,7 +318,7 @@ public class AddressableImportRule
     }
 
     /// <summary>
-    /// Ckeck match ignoreDirectoryRegexs.
+    /// Check match ignoreDirectoryRegexs.
     /// </summary>
     private bool IsIgnoreFileRegexs(string assetPath)
     {
@@ -339,7 +339,7 @@ public class AddressableImportRule
     }
 
     /// <summary>
-    /// Ckeck match ignoreDirectoryRegexs.
+    /// Check match ignoreDirectoryRegexs.
     /// </summary>
     private bool IsIgnoreExts(string assetPath)
     {
