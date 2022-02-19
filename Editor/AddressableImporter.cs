@@ -84,7 +84,7 @@ public class AddressableImporter : AssetPostprocessor
             }
         }
 
-            foreach (var deletedAsset in deletedAssets)
+        foreach (var deletedAsset in deletedAssets)
         {
             if (TryGetMatchedRule(deletedAsset, importSettings, out var matchedRule))
             {
