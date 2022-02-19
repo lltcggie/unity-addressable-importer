@@ -9,6 +9,8 @@ using System.Linq;
 using System.IO;
 using System.Text.RegularExpressions;
 using UnityEditor.AddressableAssets.Settings.GroupSchemas;
+using System.Threading.Tasks;
+using System.Threading;
 
 #if UNITY_2021_2_OR_NEWER
 using UnityEditor.SceneManagement;
@@ -55,32 +57,48 @@ public class AddressableImporter : AssetPostprocessor
 #else
         string prefabAssetPath = prefabStage != null ? prefabStage.prefabAssetPath : null;
 #endif
+
+        List<(string assetPath, string movedFromAssetPath)> targetAssetPathList = new List<(string, string)>(importedAssets.Length + movedAssets.Length);
+
         foreach (var importedAsset in importedAssets)
         {
-            if (prefabStage == null || prefabAssetPath != importedAsset) // Ignore current editing prefab asset.
-            {
-                var importedAssetPath = importedAsset;
-                if ((File.GetAttributes(importedAssetPath) & FileAttributes.Directory) == FileAttributes.Directory)
-                {
-                    importedAssetPath += "/";
-                }
-                dirty |= ApplyImportRule(importedAssetPath, null, settings, importSettings);
-            }
+            targetAssetPathList.Add((importedAsset, null));
         }
 
         for (var i = 0; i < movedAssets.Length; i++)
         {
             var movedAsset = movedAssets[i];
             var movedFromAssetPath = movedFromAssetPaths[i];
-            if (prefabStage == null || prefabAssetPath != movedAsset) // Ignore current editing prefab asset.
+
+            targetAssetPathList.Add((movedAsset, movedFromAssetPath));
+        }
+
+        List<OperationObject> operationList = new List<OperationObject>(targetAssetPathList.Count);
+        for (int i = 0; i < operationList.Capacity; i++) operationList.Add(null);
+
+        Parallel.For(0, operationList.Count, i =>
+        {
+            var (assetPath, movedFromAssetPath) = targetAssetPathList[i];
+            if (prefabStage == null || prefabAssetPath != assetPath) // Ignore current editing prefab asset.
             {
-                if ((File.GetAttributes(movedAsset) & FileAttributes.Directory) == FileAttributes.Directory)
+                if ((File.GetAttributes(assetPath) & FileAttributes.Directory) == FileAttributes.Directory)
                 {
-                    movedAsset += "/";
+                    assetPath += "/";
                     movedFromAssetPath += "/";
                 }
-                dirty |= ApplyImportRule(movedAsset, movedFromAssetPath, settings, importSettings);
 
+                if (CreateOperation(assetPath, movedFromAssetPath, importSettings, out var operation))
+                {
+                    operationList[i] = operation;
+                }
+            }
+        });
+
+        foreach (var operation in operationList)
+        {
+            if (operation != null)
+            {
+                dirty |= ApplyImportRule(settings, importSettings, operation);
             }
         }
 
@@ -108,25 +126,35 @@ public class AddressableImporter : AssetPostprocessor
         return settings.CreateGroup(groupName, false, false, false, new List<AddressableAssetGroupSchema> { settings.DefaultGroup.Schemas[0] }, typeof(SchemaType));
     }
 
-    static bool ApplyImportRule(
-        string assetPath,
-        string movedFromAssetPath,
-        AddressableAssetSettings settings,
-        AddressableImportSettings importSettings)
+    class OperationObject
     {
+        public string assetPath;
+
+        public bool isCreateOrUpdateAddressableAssetEntry = false;
+        public bool isRemoveAssetEntry = false;
+        public AddressableImportRule matchedRule;
+
+        public string groupName;
+        public string address;
+        public List<string> dynamicLabels;
+    };
+
+    static bool CreateOperation(string assetPath,
+        string movedFromAssetPath,
+        AddressableImportSettings importSettings,
+        out OperationObject operation)
+    {
+        operation = new OperationObject();
+        operation.assetPath = assetPath;
+
         var dirty = false;
         if (TryGetMatchedRule(assetPath, importSettings, out var matchedRule))
         {
             // Apply the matched rule.
-            var entry = CreateOrUpdateAddressableAssetEntry(settings, importSettings, matchedRule, assetPath);
-            if (entry != null)
-            {
-                if (matchedRule.HasLabelRefs)
-                    Debug.LogFormat("[AddressableImporter] Entry created/updated for {0} with address {1} and labels {2}", assetPath, entry.address, string.Join(", ", entry.labels));
-                else
-                    Debug.LogFormat("[AddressableImporter] Entry created/updated for {0} with address {1}", assetPath, entry.address);
-            }
+            operation.isCreateOrUpdateAddressableAssetEntry = true;
+            operation.matchedRule = matchedRule;
 
+            SetOperationCreateOrUpdateAddressableAssetEntry(matchedRule, assetPath, operation);
             dirty = true;
         }
         else
@@ -135,11 +163,43 @@ public class AddressableImporter : AssetPostprocessor
             // But only if movedFromAssetPath has the matched rule, because the importer should not remove any unmanaged entries.
             if (!string.IsNullOrEmpty(movedFromAssetPath) && TryGetMatchedRule(movedFromAssetPath, importSettings, out matchedRule))
             {
-                var guid = AssetDatabase.AssetPathToGUID(assetPath);
+                operation.isRemoveAssetEntry = true;
+                dirty = true;
+            }
+        }
+
+        return dirty;
+    }
+
+    static bool ApplyImportRule(
+        AddressableAssetSettings settings,
+        AddressableImportSettings importSettings,
+        OperationObject operation)
+    {
+        var dirty = false;
+        if (operation.isCreateOrUpdateAddressableAssetEntry)
+        {
+            // Apply the matched rule.
+            var entry = CreateOrUpdateAddressableAssetEntry(settings, importSettings, operation);
+            if (entry != null)
+            {
+                if (operation.matchedRule.HasLabelRefs)
+                    Debug.LogFormat("[AddressableImporter] Entry created/updated for {0} with address {1} and labels {2}", operation.assetPath, entry.address, string.Join(", ", entry.labels));
+                else
+                    Debug.LogFormat("[AddressableImporter] Entry created/updated for {0} with address {1}", operation.assetPath, entry.address);
+            }
+
+            dirty = true;
+        }
+        else
+        {
+            if (operation.isRemoveAssetEntry)
+            {
+                var guid = AssetDatabase.AssetPathToGUID(operation.assetPath);
                 if (settings.RemoveAssetEntry(guid))
                 {
                     dirty = true;
-                    Debug.LogFormat("[AddressableImporter] Entry removed for {0}", assetPath);
+                    Debug.LogFormat("[AddressableImporter] Entry removed for {0}", operation.assetPath);
                 }
             }
         }
@@ -147,27 +207,43 @@ public class AddressableImporter : AssetPostprocessor
         return dirty;
     }
 
+    static void SetOperationCreateOrUpdateAddressableAssetEntry(
+        AddressableImportRule rule,
+        string assetPath,
+        OperationObject operation)
+    {
+        operation.groupName = rule.ParseGroupReplacement(assetPath);
+        operation.address = rule.ParseAddressReplacement(assetPath);
+
+        operation.dynamicLabels = new List<string>(rule.dynamicLabels.Count);
+        foreach (var dynamicLabel in rule.dynamicLabels)
+        {
+            var label = rule.ParseReplacement(assetPath, dynamicLabel);
+            operation.dynamicLabels.Add(label);
+        }
+    }
+
     static AddressableAssetEntry CreateOrUpdateAddressableAssetEntry(
         AddressableAssetSettings settings,
         AddressableImportSettings importSettings,
-        AddressableImportRule rule,
-        string assetPath)
+        OperationObject operation)
     {
+        var rule = operation.matchedRule;
+
         // Set group
         AddressableAssetGroup group;
-        var groupName = rule.ParseGroupReplacement(assetPath);
         bool newGroup = false;
-        if (!TryGetGroup(settings, groupName, out group))
+        if (!TryGetGroup(settings, operation.groupName, out group))
         {
             if (importSettings.allowGroupCreation)
             {
                 //TODO Specify on editor which type to create.
-                group = CreateAssetGroup<BundledAssetGroupSchema>(settings, groupName);
+                group = CreateAssetGroup<BundledAssetGroupSchema>(settings, operation.groupName);
                 newGroup = true;
             }
             else
             {
-                Debug.LogErrorFormat("[AddressableImporter] Failed to find group {0} when importing {1}. Please check if the group exists, then reimport the asset.", rule.groupName, assetPath);
+                Debug.LogErrorFormat("[AddressableImporter] Failed to find group {0} when importing {1}. Please check if the group exists, then reimport the asset.", rule.groupName, operation.assetPath);
                 return null;
             }
         }
@@ -178,7 +254,7 @@ public class AddressableImporter : AssetPostprocessor
             rule.groupTemplate.ApplyToAddressableAssetGroup(group);
         }
 
-        var forAssetDatabaseAssetPath = assetPath.EndsWith("/") ? assetPath.Substring(0, assetPath.Length - 1) : assetPath;
+        var forAssetDatabaseAssetPath = operation.assetPath.EndsWith("/") ? operation.assetPath.Substring(0, operation.assetPath.Length - 1) : operation.assetPath;
         var guid = AssetDatabase.AssetPathToGUID(forAssetDatabaseAssetPath);
         var entry = settings.CreateOrMoveEntry(guid, group);
 
@@ -190,7 +266,7 @@ public class AddressableImporter : AssetPostprocessor
                 rule.simplified ||
                 !string.IsNullOrWhiteSpace(rule.addressReplacement))
             {
-                entry.address = rule.ParseAddressReplacement(assetPath);
+                entry.address = operation.address;
             }
 
             // Add labels
@@ -207,9 +283,8 @@ public class AddressableImporter : AssetPostprocessor
 
             if (rule.dynamicLabels != null)
             {
-                foreach (var dynamicLabel in rule.dynamicLabels)
+                foreach (var label in operation.dynamicLabels)
                 {
-                    var label = rule.ParseReplacement(assetPath, dynamicLabel);
                     settings.AddLabel(label);
                     entry.labels.Add(label);
                 }
